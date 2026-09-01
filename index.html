@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>架空コンビニ経営シミュレーション</title>
+  <style>
+    :root {
+      --bg: #f6faf7;
+      --surface: #ffffff;
+      --surface-2: #edf7f0;
+      --ink: #15251b;
+      --muted: #5b6b61;
+      --line: #ccd9d0;
+      --green: #0b6b3a;
+      --green-2: #2f5d50;
+      --blue: #176b87;
+      --orange: #e36f2c;
+      --red: #b42318;
+      --yellow: #f5d46f;
+      --shadow: 0 10px 24px rgba(22, 45, 31, .08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+    .app { max-width: 1280px; margin: 0 auto; padding: 16px; }
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: end;
+      padding: 18px;
+      background: var(--green);
+      color: white;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+    h1, h2, h3 { margin: 0; font-weight: 600; }
+    h1 { font-size: clamp(22px, 3vw, 34px); }
+    h2 { font-size: 18px; margin-bottom: 10px; }
+    h3 { font-size: 15px; margin-bottom: 8px; color: var(--green-2); }
+    .subtitle { margin-top: 4px; color: rgba(255,255,255,.82); }
+    .top-controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    label { font-size: 14px; color: inherit; }
+    input, select, button {
+      font: inherit;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+    }
+    input {
+      width: 110px;
+      padding: 8px 9px;
+      background: white;
+      color: var(--ink);
+    }
+    button {
+      padding: 9px 12px;
+      background: var(--surface);
+      color: var(--green);
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover { filter: brightness(.98); }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 14px 0;
+    }
+    .tab-button {
+      background: var(--surface);
+      color: var(--green-2);
+      border-color: var(--line);
+    }
+    .tab-button[aria-selected="true"] {
+      background: var(--green);
+      color: white;
+      border-color: var(--green);
+    }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      box-shadow: var(--shadow);
+    }
+    .kpi-label { color: var(--muted); font-size: 13px; }
+    .kpi-value {
+      margin-top: 6px;
+      font-size: clamp(22px, 3.2vw, 32px);
+      font-weight: 700;
+      color: var(--green);
+      font-variant-numeric: tabular-nums;
+    }
+    .kpi-note { margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .chart-box {
+      min-height: 290px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      box-shadow: var(--shadow);
+    }
+    .chart { width: 100%; min-height: 245px; }
+    svg { width: 100%; height: auto; display: block; }
+    .axis, .grid-line { stroke: #cfd8d2; stroke-width: 1; }
+    .axis-text { fill: var(--muted); font-size: 12px; }
+    .table-wrap {
+      overflow-x: auto;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+    table { width: 100%; border-collapse: collapse; min-width: 680px; }
+    th, td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      font-size: 13px;
+    }
+    th {
+      text-align: left;
+      background: var(--green);
+      color: white;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    tr:nth-child(even) td { background: var(--surface-2); }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .section { margin: 14px 0; }
+    .muted { color: var(--muted); }
+    .good { color: var(--green); font-weight: 700; }
+    .bad { color: var(--red); font-weight: 700; }
+    .input-table input { width: 130px; padding: 6px 8px; text-align: right; }
+    .note {
+      padding: 10px 12px;
+      background: #fff8dd;
+      border: 1px solid #ead68d;
+      border-radius: 8px;
+      color: #5d4500;
+    }
+    @media (max-width: 900px) {
+      header { grid-template-columns: 1fr; }
+      .top-controls { justify-content: flex-start; }
+      .kpi-grid, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      table { min-width: 760px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>架空コンビニ経営シミュレーション</h1>
+        <div class="subtitle">商品・仕入・1か月営業データから、年間損益分岐点、P/L、B/S、C/Fまで再計算します。</div>
+      </div>
+      <div class="top-controls">
+        <label>売上規模倍率
+          <input id="salesScale" type="number" min="0.1" step="0.1" value="15">
+        </label>
+        <button id="resetButton" type="button">初期値</button>
+      </div>
+    </header>
+
+    <nav class="tabs" aria-label="表示切替">
+      <button class="tab-button" type="button" data-tab="dashboard" aria-selected="true">決算サマリー</button>
+      <button class="tab-button" type="button" data-tab="assumptions" aria-selected="false">前提条件</button>
+      <button class="tab-button" type="button" data-tab="breakEven" aria-selected="false">損益分岐点</button>
+      <button class="tab-button" type="button" data-tab="statements" aria-selected="false">B/S P/L C/F</button>
+      <button class="tab-button" type="button" data-tab="operations" aria-selected="false">営業分析</button>
+      <button class="tab-button" type="button" data-tab="data" aria-selected="false">元データ</button>
+    </nav>
+
+    <main>
+      <section id="dashboard" class="panel active">
+        <div id="dashboardKpis" class="kpi-grid"></div>
+        <div class="grid-2">
+          <div class="chart-box"><h2>月次売上と営業利益</h2><div id="monthlyChart" class="chart"></div></div>
+          <div class="chart-box"><h2>P/L構成</h2><div id="plChart" class="chart"></div></div>
+          <div class="chart-box"><h2>予測売上 vs 損益分岐点</h2><div id="beChart" class="chart"></div></div>
+          <div class="card" id="statementCheck"></div>
+        </div>
+      </section>
+
+      <section id="assumptions" class="panel">
+        <div class="grid-2">
+          <div class="section"><h2>固定費</h2><div id="fixedCostTable"></div></div>
+          <div class="section"><h2>変動費率・運転資金</h2><div id="variableTable"></div></div>
+        </div>
+      </section>
+
+      <section id="breakEven" class="panel">
+        <div class="grid-2">
+          <div class="section"><h2>年間損益分岐点</h2><div id="breakEvenTable"></div></div>
+          <div class="section"><h2>感度分析</h2><div id="sensitivityTable"></div></div>
+        </div>
+      </section>
+
+      <section id="statements" class="panel">
+        <div class="grid-3">
+          <div class="section"><h2>P/L 損益計算書</h2><div id="plTable"></div></div>
+          <div class="section"><h2>B/S 貸借対照表</h2><div id="bsTable"></div></div>
+          <div class="section"><h2>C/F キャッシュフロー</h2><div id="cfTable"></div></div>
+        </div>
+      </section>
+
+      <section id="operations" class="panel">
+        <div id="operationKpis" class="kpi-grid"></div>
+        <div class="grid-2">
+          <div class="chart-box"><h2>カテゴリ別売上</h2><div id="categoryChart" class="chart"></div></div>
+          <div class="chart-box"><h2>時間帯別売上</h2><div id="timeChart" class="chart"></div></div>
+        </div>
+        <div class="grid-2">
+          <div class="section"><h2>日別集計</h2><div id="dailyTable"></div></div>
+          <div class="section"><h2>売上上位商品</h2><div id="topProductTable"></div></div>
+        </div>
+      </section>
+
+      <section id="data" class="panel">
+        <div class="note section">売上明細はブラウザ内で生成しています。下表は先頭80行の表示です。集計には全1か月分を使います。</div>
+        <div class="grid-2">
+          <div class="section"><h2>商品テーブル</h2><div id="productTable"></div></div>
+          <div class="section"><h2>仕入先テーブル</h2><div id="supplierTable"></div></div>
+        </div>
+        <div class="section"><h2>ピボット集計: カテゴリ × 時間帯</h2><div id="pivotCategoryTime"></div></div>
+        <div class="section"><h2>売上明細サンプル</h2><div id="salesTable"></div></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const suppliers = [
+      ["S001", "東北フーズ", "弁当・惣菜", "盛岡市", 2, "月末締め翌月末払い"],
+      ["S002", "盛岡ベーカリー", "おにぎり・パン", "滝沢市", 1, "週締め翌週払い"],
+      ["S003", "北上ドリンク", "飲料", "北上市", 3, "月末締め翌月末払い"],
+      ["S004", "奥州菓子卸", "菓子", "奥州市", 4, "月末締め翌月末払い"],
+      ["S005", "日用品流通センター", "日用品", "仙台市", 5, "月末締め翌月末払い"],
+      ["S006", "岩手ホットスナック", "ホットスナック", "花巻市", 1, "週締め翌週払い"],
+      ["S007", "中央出版取次", "雑誌・書籍", "東京都", 6, "月末締め翌月末払い"],
+      ["S008", "クイック物流", "サービス", "矢巾町", 2, "都度精算"]
+    ];
+    const products = [
+      ["P001","鮭おにぎり","おにぎり・パン","S002",170,105,8],["P002","ツナマヨおにぎり","おにぎり・パン","S002",150,92,9],
+      ["P003","梅おにぎり","おにぎり・パン","S002",140,84,6],["P004","たまごサンド","おにぎり・パン","S002",298,185,5],
+      ["P005","ミックスサンド","おにぎり・パン","S002",348,218,4],["P006","メロンパン","おにぎり・パン","S002",168,92,5],
+      ["P007","幕の内弁当","弁当・惣菜","S001",598,390,5],["P008","唐揚げ弁当","弁当・惣菜","S001",620,405,6],
+      ["P009","冷し中華","弁当・惣菜","S001",498,320,4],["P010","パスタナポリタン","弁当・惣菜","S001",460,295,4],
+      ["P011","コールスロー","弁当・惣菜","S001",198,115,3],["P012","カット野菜","弁当・惣菜","S001",158,88,3],
+      ["P013","ブレンドコーヒーS","飲料","S003",120,45,10],["P014","カフェラテM","飲料","S003",190,72,7],
+      ["P015","緑茶600ml","飲料","S003",140,85,7],["P016","ミネラルウォーター","飲料","S003",110,48,7],
+      ["P017","エナジードリンク","飲料","S003",210,132,5],["P018","牛乳1000ml","飲料","S003",238,175,3],
+      ["P019","ポテトチップス","菓子","S004",178,115,5],["P020","チョコバー","菓子","S004",130,78,5],
+      ["P021","ガム","菓子","S004",120,70,3],["P022","アイスモナカ","菓子","S004",160,98,4],
+      ["P023","プリン","菓子","S004",190,115,3],["P024","レジ横チキン","ホットスナック","S006",220,130,6],
+      ["P025","コロッケ","ホットスナック","S006",120,62,4],["P026","肉まん","ホットスナック","S006",160,88,4],
+      ["P027","フライドポテト","ホットスナック","S006",180,94,4],["P028","ティッシュ","日用品","S005",258,185,2],
+      ["P029","電池 単3","日用品","S005",498,340,1.6],["P030","洗剤ミニ","日用品","S005",228,154,1.8],
+      ["P031","マスク","日用品","S005",398,240,2.2],["P032","コピーサービス","サービス","S008",10,2,2.4],
+      ["P033","宅配便受付","サービス","S008",800,650,1.3],["P034","週刊誌","雑誌・書籍","S007",480,390,1.3],
+      ["P035","文庫本","雑誌・書籍","S007",780,600,.9],["P036","ビニール傘","日用品","S005",680,450,1.2]
+    ].map(p => ({id:p[0], name:p[1], category:p[2], supplier:p[3], price:p[4], cost:p[5], weight:p[6]}));
+    const productById = Object.fromEntries(products.map(p => [p.id, p]));
+    const supplierById = Object.fromEntries(suppliers.map(s => [s[0], s]));
+    const categories = [...new Set(products.map(p => p.category))];
+    const timeSlots = ["朝", "昼", "夕方", "夜"];
+    const monthLabels = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const monthDays = [31,28,31,30,31,30,31,31,30,31,30,31];
+    const seasonality = [0.95,0.92,0.98,1,1.03,1.05,1.12,1.08,1.02,1,1.04,1.10];
+    const categoryEnglish = {"おにぎり・パン":"Rice/Bread","弁当・惣菜":"Meals/Deli","飲料":"Drinks","菓子":"Snacks","ホットスナック":"Hot Snacks","日用品":"Daily Goods","サービス":"Services","雑誌・書籍":"Books/Magazines"};
+    const timeEnglish = {"朝":"Morning","昼":"Lunch","夕方":"Evening","夜":"Night"};
+    const defaultState = {
+      salesScale: 15,
+      fixedCosts: [
+        ["店舗家賃",450000],["人件費",900000],["水道光熱 固定分",110000],["POS・システム費",45000],
+        ["保険料",30000],["清掃・保守",60000],["広告宣伝",50000],["その他固定費",65000]
+      ],
+      rates: { waste:.018, payment:.016, packaging:.010, utilityVariable:.008 },
+      working: {
+        openingCash:2000000, openingAr:0, openingInventory:500000, openingPpe:3200000,
+        openingAp:450000, openingAccrued:150000, openingDebt:1800000, capital:3000000,
+        capex:600000, debtRepayment:300000, newDebt:0, depreciation:640000,
+        taxRate:.23, interestRate:.035, arDays:3, inventoryDays:18, apDays:30, dividends:0
+      }
+    };
+    let state = JSON.parse(JSON.stringify(defaultState));
+
+    function mulberry32(seed) {
+      return function() {
+        let t = seed += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+    const rand = mulberry32(20260901);
+    function pickWeighted(items, weightFn) {
+      const weights = items.map(x => Math.max(.01, weightFn(x)));
+      const total = weights.reduce((a,b) => a + b, 0);
+      let target = rand() * total;
+      for (let i = 0; i < items.length; i++) {
+        target -= weights[i];
+        if (target <= 0) return items[i];
+      }
+      return items[items.length - 1];
+    }
+    function pickPairs(pairs) { return pickWeighted(pairs, p => p.weight).value; }
+    const slotBoost = {
+      "朝":{"おにぎり・パン":2.4,"飲料":1.9,"弁当・惣菜":.8,"菓子":.8,"ホットスナック":.9,"日用品":.8,"サービス":.7,"雑誌・書籍":1},
+      "昼":{"弁当・惣菜":2.6,"おにぎり・パン":1.7,"飲料":1.4,"ホットスナック":1.5,"菓子":.9,"日用品":.8,"サービス":.9,"雑誌・書籍":.8},
+      "夕方":{"弁当・惣菜":1.8,"飲料":1.4,"菓子":1.2,"ホットスナック":1.5,"日用品":1.2,"サービス":1.1,"おにぎり・パン":.9,"雑誌・書籍":.9},
+      "夜":{"飲料":1.6,"菓子":1.8,"ホットスナック":1.3,"弁当・惣菜":1.1,"日用品":.9,"サービス":.8,"おにぎり・パン":.7,"雑誌・書籍":.7}
+    };
+    function makeSales() {
+      const rows = [];
+      for (let day = 1; day <= 31; day++) {
+        const date = new Date(Date.UTC(2026, 7, day));
+        const weekend = [0,6].includes(date.getUTCDay());
+        const dailyLines = 43 + Math.floor(rand() * 20) + (weekend ? 11 : 0);
+        const dateKey = `202608${String(day).padStart(2,"0")}`;
+        for (let i = 1; i <= dailyLines; i++) {
+          const slot = pickPairs([{value:"朝",weight:.24},{value:"昼",weight:.32},{value:"夕方",weight:.27},{value:"夜",weight:.17}]);
+          const product = pickWeighted(products, p => p.weight * (slotBoost[slot][p.category] || 1));
+          let qty = 1;
+          if (rand() < .14) qty++;
+          if (["飲料","菓子","ホットスナック"].includes(product.category) && rand() < .08) qty++;
+          if (product.price <= 130 && rand() < .04) qty += 2;
+          const pay = pickPairs([{value:"現金",weight:.32},{value:"電子マネー",weight:.27},{value:"QR決済",weight:.25},{value:"クレジット",weight:.16}]);
+          rows.push({date, day, slot, receipt:`R${dateKey}-${String(i).padStart(3,"0")}`, productId:product.id, qty, pay});
+        }
+      }
+      return rows;
+    }
+    const sales = makeSales();
+
+    const yen = n => Math.round(n).toLocaleString("ja-JP", { style:"currency", currency:"JPY", maximumFractionDigits:0 });
+    const num = n => Math.round(n).toLocaleString("ja-JP");
+    const pct = n => `${(n * 100).toFixed(1)}%`;
+    const sum = arr => arr.reduce((a,b) => a + b, 0);
+    const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+    function operational() {
+      const daily = new Map(), category = new Map(), time = new Map(), prod = new Map();
+      let totalSales = 0, totalCost = 0, qty = 0;
+      sales.forEach(row => {
+        const p = productById[row.productId];
+        const salesValue = p.price * row.qty;
+        const costValue = p.cost * row.qty;
+        totalSales += salesValue;
+        totalCost += costValue;
+        qty += row.qty;
+        const dayKey = row.date.toISOString().slice(0,10);
+        addTo(daily, dayKey, salesValue, costValue, row.qty, 1);
+        addTo(category, p.category, salesValue, costValue, row.qty, 1);
+        addTo(time, row.slot, salesValue, costValue, row.qty, 1);
+        addTo(prod, p.id, salesValue, costValue, row.qty, 1);
+      });
+      return { totalSales, totalCost, grossProfit: totalSales - totalCost, qty, lines: sales.length, daily, category, time, prod };
+    }
+    function addTo(map, key, salesValue, costValue, qty, lines) {
+      const item = map.get(key) || {sales:0, cost:0, qty:0, lines:0};
+      item.sales += salesValue; item.cost += costValue; item.qty += qty; item.lines += lines;
+      map.set(key, item);
+    }
+    function compute() {
+      const ops = operational();
+      const cogsRate = ops.totalCost / ops.totalSales;
+      const otherRate = state.rates.waste + state.rates.payment + state.rates.packaging + state.rates.utilityVariable;
+      const variableRate = cogsRate + otherRate;
+      const cmRate = 1 - variableRate;
+      const fixedAnnual = sum(state.fixedCosts.map(x => Number(x[1]) || 0)) * 12;
+      const monthly = monthLabels.map((m, i) => {
+        const salesValue = (ops.totalSales / 31) * monthDays[i] * seasonality[i] * state.salesScale;
+        const cogs = salesValue * cogsRate;
+        const waste = salesValue * state.rates.waste;
+        const payment = salesValue * state.rates.payment;
+        const packaging = salesValue * state.rates.packaging;
+        const utility = salesValue * state.rates.utilityVariable;
+        const variable = cogs + waste + payment + packaging + utility;
+        const cm = salesValue - variable;
+        const fixed = fixedAnnual / 12;
+        const ebitda = cm - fixed;
+        const dep = state.working.depreciation / 12;
+        const op = ebitda - dep;
+        const interest = state.working.openingDebt * state.working.interestRate / 12;
+        const pretax = op - interest;
+        const tax = Math.max(pretax * state.working.taxRate, 0);
+        const ni = pretax - tax;
+        return {m, sales:salesValue, cogs, waste, payment, packaging, utility, variable, cm, fixed, ebitda, dep, op, interest, pretax, tax, ni};
+      });
+      const annual = {};
+      ["sales","cogs","waste","payment","packaging","utility","variable","cm","fixed","ebitda","dep","op","interest","pretax","tax","ni"].forEach(k => annual[k] = sum(monthly.map(x => x[k])));
+      annual.cmRate = annual.cm / annual.sales;
+      const beOperating = (fixedAnnual + state.working.depreciation) / cmRate;
+      const beNet = (fixedAnnual + state.working.depreciation + annual.interest) / cmRate;
+      const arEnd = annual.sales * state.working.arDays / 365;
+      const invEnd = annual.cogs * state.working.inventoryDays / 365;
+      const apEnd = annual.cogs * state.working.apDays / 365;
+      const accruedEnd = fixedAnnual * 15 / 365;
+      const ppeEnd = state.working.openingPpe + state.working.capex - state.working.depreciation;
+      const debtEnd = state.working.openingDebt + state.working.newDebt - state.working.debtRepayment;
+      const cfo = annual.ni + state.working.depreciation - (arEnd - state.working.openingAr) - (invEnd - state.working.openingInventory) + (apEnd - state.working.openingAp) + (accruedEnd - state.working.openingAccrued);
+      const investingCf = -state.working.capex;
+      const financingCf = state.working.newDebt - state.working.debtRepayment - state.working.dividends;
+      const endingCash = state.working.openingCash + cfo + investingCf + financingCf;
+      const openingAssets = state.working.openingCash + state.working.openingAr + state.working.openingInventory + state.working.openingPpe;
+      const openingLiab = state.working.openingAp + state.working.openingAccrued + state.working.openingDebt;
+      const openingRe = openingAssets - openingLiab - state.working.capital;
+      const endAssets = endingCash + arEnd + invEnd + ppeEnd;
+      const endLiab = apEnd + accruedEnd + debtEnd;
+      const endEquity = state.working.capital + openingRe + annual.ni - state.working.dividends;
+      return {ops, cogsRate, otherRate, variableRate, cmRate, fixedAnnual, monthly, annual, beOperating, beNet, arEnd, invEnd, apEnd, accruedEnd, ppeEnd, debtEnd, cfo, investingCf, financingCf, endingCash, openingAssets, openingLiab, openingRe, endAssets, endLiab, endEquity, bsCheck:endAssets - endLiab - endEquity};
+    }
+
+    function table(headers, rows) {
+      return `<div class="table-wrap"><table><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td class="${typeof c === "number" ? "num" : ""}">${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+    }
+    function inputCell(type, key, value, step="1") {
+      return `<input type="number" step="${step}" data-kind="${type}" data-key="${key}" value="${esc(value)}">`;
+    }
+    function kpi(label, value, note="", bad=false) {
+      return `<div class="card"><div class="kpi-label">${esc(label)}</div><div class="kpi-value ${bad ? "bad" : ""}">${esc(value)}</div><div class="kpi-note">${esc(note)}</div></div>`;
+    }
+
+    function renderAll() {
+      const model = compute();
+      const active = document.activeElement;
+      if (active?.id !== "salesScale") document.getElementById("salesScale").value = state.salesScale;
+      renderDashboard(model);
+      renderAssumptions(model);
+      renderBreakEven(model);
+      renderStatements(model);
+      renderOperations(model);
+      renderData(model);
+    }
+    function renderDashboard(m) {
+      document.getElementById("dashboardKpis").innerHTML = [
+        kpi("年間予測売上高", yen(m.annual.sales), `売上規模倍率 ${state.salesScale}倍`),
+        kpi("年間損益分岐点売上高", yen(m.beOperating), `限界利益率 ${pct(m.cmRate)}`),
+        kpi("当期純利益", yen(m.annual.ni), "P/L最終行", m.annual.ni < 0),
+        kpi("B/S差額チェック", yen(m.bsCheck), "0円なら三表整合", Math.abs(m.bsCheck) > 1)
+      ].join("");
+      document.getElementById("statementCheck").innerHTML = `<h2>決算チェック</h2>${table(["項目","値"], [
+        ["期末現金", yen(m.endingCash)],["年間損益分岐点", yen(m.beOperating)],["純利益ゼロ売上高", yen(m.beNet)],
+        ["安全余裕率", pct((m.annual.sales - m.beOperating) / m.annual.sales)],["B/S差額", yen(m.bsCheck)]
+      ])}`;
+      drawLine("monthlyChart", monthLabels, [
+        {name:"Sales", values:m.monthly.map(x => x.sales), color:"var(--blue)"},
+        {name:"Operating income", values:m.monthly.map(x => x.op), color:"var(--orange)"}
+      ]);
+      drawBars("plChart", ["Sales","COGS","Other var","Fixed","Dep.","Interest","Tax","Net"], [m.annual.sales,-m.annual.cogs,-(m.annual.variable-m.annual.cogs),-m.annual.fixed,-m.annual.dep,-m.annual.interest,-m.annual.tax,m.annual.ni], true);
+      drawBars("beChart", ["Forecast","Operating BE","Net BE"], [m.annual.sales,m.beOperating,m.beNet], false);
+    }
+    function renderAssumptions(m) {
+      document.getElementById("fixedCostTable").innerHTML = table(["項目","月額","年額"], state.fixedCosts.map((x,i) => [x[0], inputCell("fixed", i, x[1]), yen(x[1] * 12)]).concat([["固定費合計", "", yen(m.fixedAnnual)]]));
+      const rows = [
+        ["商品原価率", pct(m.cogsRate), "売上明細から自動計算"],
+        ["廃棄ロス率", inputCell("rate","waste",(state.rates.waste*100).toFixed(1),".1"), "%"],
+        ["決済手数料率", inputCell("rate","payment",(state.rates.payment*100).toFixed(1),".1"), "%"],
+        ["包装・消耗品率", inputCell("rate","packaging",(state.rates.packaging*100).toFixed(1),".1"), "%"],
+        ["変動水道光熱費率", inputCell("rate","utilityVariable",(state.rates.utilityVariable*100).toFixed(1),".1"), "%"],
+        ["変動費率合計", pct(m.variableRate), ""],
+        ["限界利益率", pct(m.cmRate), ""],
+        ["売掛回収日数", inputCell("working","arDays",state.working.arDays), "日"],
+        ["棚卸日数", inputCell("working","inventoryDays",state.working.inventoryDays), "日"],
+        ["買掛支払日数", inputCell("working","apDays",state.working.apDays), "日"],
+        ["年間減価償却費", inputCell("working","depreciation",state.working.depreciation), "円"],
+        ["年間設備投資", inputCell("working","capex",state.working.capex), "円"]
+      ];
+      document.getElementById("variableTable").innerHTML = table(["項目","値","メモ"], rows);
+    }
+    function renderBreakEven(m) {
+      document.getElementById("breakEvenTable").innerHTML = table(["項目","金額・率"], [
+        ["年間固定費(現金)", yen(m.fixedAnnual)],["年間減価償却費", yen(state.working.depreciation)],["支払利息", yen(m.annual.interest)],
+        ["変動費率", pct(m.variableRate)],["限界利益率", pct(m.cmRate)],["年間損益分岐点売上高", yen(m.beOperating)],
+        ["純利益ゼロ売上高", yen(m.beNet)],["年間予測売上高", yen(m.annual.sales)],["安全余裕額", yen(m.annual.sales - m.beOperating)],
+        ["安全余裕率", pct((m.annual.sales - m.beOperating) / m.annual.sales)],["月商換算", yen(m.beOperating / 12)]
+      ]);
+      const cmrs = [m.cmRate-.05, m.cmRate-.025, m.cmRate, m.cmRate+.025].map(x => Math.max(x,.01));
+      const factors = [.9,.95,1,1.05,1.1];
+      document.getElementById("sensitivityTable").innerHTML = table(["固定費 / 限界利益率", ...cmrs.map(pct)], factors.map(f => [`固定費 ${Math.round(f*100)}%`, ...cmrs.map(c => yen((m.fixedAnnual + state.working.depreciation) * f / c))]));
+    }
+    function renderStatements(m) {
+      document.getElementById("plTable").innerHTML = table(["科目","年間","構成比"], [
+        ["売上高", yen(m.annual.sales), pct(1)],["商品原価", yen(m.annual.cogs), pct(m.annual.cogs/m.annual.sales)],
+        ["売上総利益", yen(m.annual.sales-m.annual.cogs), pct((m.annual.sales-m.annual.cogs)/m.annual.sales)],
+        ["その他変動費", yen(m.annual.variable-m.annual.cogs), pct((m.annual.variable-m.annual.cogs)/m.annual.sales)],
+        ["限界利益", yen(m.annual.cm), pct(m.cmRate)],["固定費", yen(m.annual.fixed), pct(m.annual.fixed/m.annual.sales)],
+        ["EBITDA", yen(m.annual.ebitda), pct(m.annual.ebitda/m.annual.sales)],["減価償却費", yen(m.annual.dep), pct(m.annual.dep/m.annual.sales)],
+        ["営業利益", yen(m.annual.op), pct(m.annual.op/m.annual.sales)],["支払利息", yen(m.annual.interest), pct(m.annual.interest/m.annual.sales)],
+        ["税引前利益", yen(m.annual.pretax), pct(m.annual.pretax/m.annual.sales)],["法人税等", yen(m.annual.tax), pct(m.annual.tax/m.annual.sales)],
+        ["当期純利益", yen(m.annual.ni), pct(m.annual.ni/m.annual.sales)]
+      ]);
+      document.getElementById("bsTable").innerHTML = table(["科目","期首","期末"], [
+        ["現金及び預金", yen(state.working.openingCash), yen(m.endingCash)],["売掛金", yen(state.working.openingAr), yen(m.arEnd)],
+        ["棚卸資産", yen(state.working.openingInventory), yen(m.invEnd)],["固定資産", yen(state.working.openingPpe), yen(m.ppeEnd)],
+        ["資産合計", yen(m.openingAssets), yen(m.endAssets)],["買掛金", yen(state.working.openingAp), yen(m.apEnd)],
+        ["未払費用", yen(state.working.openingAccrued), yen(m.accruedEnd)],["借入金", yen(state.working.openingDebt), yen(m.debtEnd)],
+        ["負債合計", yen(m.openingLiab), yen(m.endLiab)],["資本金", yen(state.working.capital), yen(state.working.capital)],
+        ["利益剰余金", yen(m.openingRe), yen(m.openingRe + m.annual.ni - state.working.dividends)],
+        ["純資産合計", yen(state.working.capital + m.openingRe), yen(m.endEquity)],["B/S差額", yen(0), yen(m.bsCheck)]
+      ]);
+      document.getElementById("cfTable").innerHTML = table(["項目","年間"], [
+        ["当期純利益", yen(m.annual.ni)],["減価償却費", yen(state.working.depreciation)],["売掛金増減", yen(-(m.arEnd-state.working.openingAr))],
+        ["棚卸資産増減", yen(-(m.invEnd-state.working.openingInventory))],["買掛金増減", yen(m.apEnd-state.working.openingAp)],
+        ["未払費用増減", yen(m.accruedEnd-state.working.openingAccrued)],["営業CF", yen(m.cfo)],["設備投資", yen(m.investingCf)],
+        ["新規借入", yen(state.working.newDebt)],["借入返済", yen(-state.working.debtRepayment)],["配当", yen(-state.working.dividends)],
+        ["財務CF", yen(m.financingCf)],["現金増減", yen(m.cfo + m.investingCf + m.financingCf)],["期首現金", yen(state.working.openingCash)],["期末現金", yen(m.endingCash)]
+      ]);
+    }
+    function renderOperations(m) {
+      document.getElementById("operationKpis").innerHTML = [
+        kpi("1か月売上高", yen(m.ops.totalSales), "元データ"),
+        kpi("1か月粗利", yen(m.ops.grossProfit), `粗利率 ${pct(m.ops.grossProfit/m.ops.totalSales)}`),
+        kpi("売上行数", num(m.ops.lines), "架空明細"),
+        kpi("販売数量", num(m.ops.qty), "合計")
+      ].join("");
+      const catRows = [...m.ops.category.entries()].map(([k,v]) => [categoryEnglish[k] || k, v.sales]).sort((a,b) => b[1]-a[1]);
+      const timeRows = [...m.ops.time.entries()].map(([k,v]) => [timeEnglish[k] || k, v.sales]);
+      drawBars("categoryChart", catRows.map(x=>x[0]), catRows.map(x=>x[1]), false);
+      drawBars("timeChart", timeRows.map(x=>x[0]), timeRows.map(x=>x[1]), false);
+      document.getElementById("dailyTable").innerHTML = table(["日付","売上高","原価","粗利","粗利率"], [...m.ops.daily.entries()].map(([k,v]) => [k, yen(v.sales), yen(v.cost), yen(v.sales-v.cost), pct((v.sales-v.cost)/v.sales)]));
+      const top = [...m.ops.prod.entries()].map(([id,v]) => ({id, ...v, product: productById[id]})).sort((a,b) => b.sales-a.sales).slice(0,10);
+      document.getElementById("topProductTable").innerHTML = table(["商品ID","商品名","カテゴリ","売上高","粗利"], top.map(x => [x.id, x.product.name, x.product.category, yen(x.sales), yen(x.sales-x.cost)]));
+    }
+    function renderData(m) {
+      document.getElementById("productTable").innerHTML = table(["商品ID","商品名","カテゴリ","仕入先","売価","仕入単価","粗利率"], products.map(p => [p.id,p.name,p.category,supplierById[p.supplier][1],yen(p.price),yen(p.cost),pct((p.price-p.cost)/p.price)]));
+      document.getElementById("supplierTable").innerHTML = table(["仕入先ID","仕入先名","主なカテゴリ","所在地","LT(日)","支払条件"], suppliers);
+      const pivot = categories.map(cat => [cat, ...timeSlots.map(slot => {
+        const total = sales.reduce((a,r) => {
+          const p = productById[r.productId];
+          return a + (p.category === cat && r.slot === slot ? p.price*r.qty : 0);
+        },0);
+        return yen(total);
+      })]);
+      document.getElementById("pivotCategoryTime").innerHTML = table(["カテゴリ",...timeSlots], pivot);
+      document.getElementById("salesTable").innerHTML = table(["日付","時間帯","レシートID","商品ID","商品名","数量","売上高","支払方法"], sales.slice(0,80).map(r => {
+        const p = productById[r.productId];
+        return [r.date.toISOString().slice(0,10), r.slot, r.receipt, r.productId, p.name, r.qty, yen(p.price*r.qty), r.pay];
+      }));
+    }
+    function drawLine(id, labels, series) {
+      const all = series.flatMap(s => s.values);
+      const min = Math.min(0, ...all), max = Math.max(...all) * 1.08;
+      const w = 680, h = 250, left = 64, right = 16, top = 16, bottom = 44;
+      const x = i => left + i * ((w-left-right)/(labels.length-1));
+      const y = v => top + (max-v) * ((h-top-bottom)/(max-min));
+      const grid = [0,.25,.5,.75,1].map(t => min + (max-min)*t);
+      const lines = series.map(s => {
+        const d = s.values.map((v,i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
+        return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="3"/>`;
+      }).join("");
+      const legend = series.map((s,i) => `<g transform="translate(${left+i*150},235)"><rect width="12" height="12" fill="${s.color}"/><text x="18" y="11" class="axis-text">${esc(s.name)}</text></g>`).join("");
+      document.getElementById(id).innerHTML = `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Line chart">${grid.map(v => `<line class="grid-line" x1="${left}" x2="${w-right}" y1="${y(v)}" y2="${y(v)}"/><text class="axis-text" x="4" y="${y(v)+4}">${esc(shortYen(v))}</text>`).join("")}${labels.map((l,i) => i%2===0 ? `<text class="axis-text" x="${x(i)-10}" y="224">${esc(l)}</text>` : "").join("")}${lines}${legend}</svg>`;
+    }
+    function drawBars(id, labels, values, allowNegative) {
+      const w = 680, h = 250, left = 62, right = 14, top = 16, bottom = 50;
+      const min = allowNegative ? Math.min(0, ...values) * 1.08 : 0;
+      const max = Math.max(...values) * 1.08;
+      const span = max - min || 1;
+      const y = v => top + (max-v) * ((h-top-bottom)/span);
+      const zero = y(0);
+      const gap = 10;
+      const bw = Math.max(18, ((w-left-right) / values.length) - gap);
+      const bars = values.map((v,i) => {
+        const x = left + i * ((w-left-right)/values.length) + gap/2;
+        const barY = Math.min(y(v), zero);
+        const bh = Math.max(1, Math.abs(y(v)-zero));
+        const fill = v < 0 ? "var(--orange)" : "var(--blue)";
+        return `<rect x="${x}" y="${barY}" width="${bw}" height="${bh}" fill="${fill}"/><text class="axis-text" x="${x + bw/2}" y="224" text-anchor="middle">${esc(labels[i])}</text>`;
+      }).join("");
+      const grid = [0,.25,.5,.75,1].map(t => min + span*t);
+      document.getElementById(id).innerHTML = `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Bar chart">${grid.map(v => `<line class="grid-line" x1="${left}" x2="${w-right}" y1="${y(v)}" y2="${y(v)}"/><text class="axis-text" x="2" y="${y(v)+4}">${esc(shortYen(v))}</text>`).join("")}<line class="axis" x1="${left}" x2="${w-right}" y1="${zero}" y2="${zero}"/>${bars}</svg>`;
+    }
+    function shortYen(v) {
+      const a = Math.abs(v);
+      if (a >= 100000000) return `${(v/100000000).toFixed(1)}億`;
+      if (a >= 1000000) return `${(v/1000000).toFixed(0)}M`;
+      if (a >= 1000) return `${(v/1000).toFixed(0)}k`;
+      return Math.round(v).toString();
+    }
+
+    document.querySelector(".tabs").addEventListener("click", e => {
+      const btn = e.target.closest("[data-tab]");
+      if (!btn) return;
+      document.querySelectorAll(".tab-button").forEach(b => b.setAttribute("aria-selected", b === btn ? "true" : "false"));
+      document.querySelectorAll(".panel").forEach(p => p.classList.toggle("active", p.id === btn.dataset.tab));
+    });
+    document.getElementById("salesScale").addEventListener("input", e => {
+      state.salesScale = Number(e.target.value) || 1;
+      renderAll();
+    });
+    document.getElementById("resetButton").addEventListener("click", () => {
+      state = JSON.parse(JSON.stringify(defaultState));
+      renderAll();
+    });
+    document.body.addEventListener("change", e => {
+      const input = e.target.closest("input[data-kind]");
+      if (!input) return;
+      const value = Number(input.value) || 0;
+      if (input.dataset.kind === "fixed") state.fixedCosts[Number(input.dataset.key)][1] = value;
+      if (input.dataset.kind === "rate") state.rates[input.dataset.key] = value / 100;
+      if (input.dataset.kind === "working") state.working[input.dataset.key] = value;
+      renderAll();
+    });
+    renderAll();
+  </script>
+</body>
+</html>

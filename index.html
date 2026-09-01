@@ -155,6 +155,11 @@
     .good { color: var(--green); font-weight: 700; }
     .bad { color: var(--red); font-weight: 700; }
     .input-table input { width: 130px; padding: 6px 8px; text-align: right; }
+    #assumptions table { min-width: 0; table-layout: fixed; }
+    #assumptions th:nth-child(1), #assumptions td:nth-child(1) { width: 28%; }
+    #assumptions th:nth-child(2), #assumptions td:nth-child(2) { width: 42%; }
+    #assumptions th:nth-child(3), #assumptions td:nth-child(3) { width: 30%; }
+    #assumptions input[data-kind] { width: 100%; min-width: 92px; max-width: 150px; padding: 6px 8px; text-align: right; }
     .note {
       padding: 10px 12px;
       background: #fff8dd;
@@ -434,11 +439,18 @@
       return {ops, cogsRate, otherRate, variableRate, cmRate, fixedAnnual, monthly, annual, beOperating, beNet, arEnd, invEnd, apEnd, accruedEnd, ppeEnd, debtEnd, cfo, investingCf, financingCf, endingCash, openingAssets, openingLiab, openingRe, endAssets, endLiab, endEquity, bsCheck:endAssets - endLiab - endEquity};
     }
 
+    function rawHtml(html) {
+      return { __html: String(html) };
+    }
     function table(headers, rows) {
-      return `<div class="table-wrap"><table><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td class="${typeof c === "number" ? "num" : ""}">${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+      return `<div class="table-wrap"><table><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => {
+        const isRaw = c && typeof c === "object" && Object.prototype.hasOwnProperty.call(c, "__html");
+        const cls = typeof c === "number" ? "num" : (isRaw ? "input-cell" : "");
+        return `<td class="${cls}">${isRaw ? c.__html : esc(c)}</td>`;
+      }).join("")}</tr>`).join("")}</tbody></table></div>`;
     }
     function inputCell(type, key, value, step="1") {
-      return `<input type="number" step="${step}" data-kind="${type}" data-key="${key}" value="${esc(value)}">`;
+      return rawHtml(`<input type="number" step="${esc(step)}" data-kind="${esc(type)}" data-key="${esc(key)}" value="${esc(value)}" aria-label="${esc(String(key))}">`);
     }
     function kpi(label, value, note="", bad=false) {
       return `<div class="card"><div class="kpi-label">${esc(label)}</div><div class="kpi-value ${bad ? "bad" : ""}">${esc(value)}</div><div class="kpi-note">${esc(note)}</div></div>`;
